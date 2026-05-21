@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账号台账管理 - 预警监控看板优化</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary-color: #1890ff;
+            --primary-hover: #40a9ff;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-secondary: #666666;
+            --text-light: #8c8c8c;
+            --border-color: #e8e8e8;
+            --danger-color: #ff4d4f;
+            --warning-color: #faad14;
+            --success-color: #52c41a;
+            --purple-color: #722ed1;
+            --muted-color: #bfbfbf;
+            --shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+            --border-radius: 6px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        .container {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 12px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: -6px;
+        }
+
+        .page-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .page-title::before {
+            content: "";
+            width: 3px;
+            height: 14px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        .dashboard-section {
+            display: flex;
+            flex-direction: column;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease;
+            max-height: 1000px;
+            opacity: 1;
+            overflow: hidden;
+        }
+
+        .dashboard-section.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+            pointer-events: none;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .card-group {
+            background: var(--card-bg);
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        .card-group-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 4px;
+        }
+
+        .chart-box {
+            width: 100%;
+            height: 110px;
+        }
+
+        .vacation-compact {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            height: 110px;
+        }
+
+        .vacation-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .vacation-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .vacation-list::-webkit-scrollbar-thumb {
+            background: #d9d9d9;
+            border-radius: 4px;
+        }
+
+        .vacation-item {
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 4px;
+            padding: 2px 6px;
+            cursor: pointer;
+            transition: var(--transition);
+            text-align: left;
+        }
+
+        .vacation-item:hover {
+            background: #fafafa;
+        }
+
+        .vacation-item.active {
+            background: #fff2f0;
+            border-color: var(--danger-color);
+        }
+
+        .vacation-row {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .vacation-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            margin-bottom: 2px;
+            color: var(--text-secondary);
+        }
+
+        .vacation-item.active .vacation-info {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+
+        .vacation-label {
+            display: flex;
+            align-items: center;
+            font-size: 11px;
+            min-width: 0;
+            white-space: nowrap;
+        }
+
+        .vacation-values {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .vacation-count {
+            min-width: 40px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .vacation-percent {
+            min-width: 32px;
+            text-align: right;
+        }
+
+        .vacation-track {
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            background: #f5f5f5;
+            overflow: hidden;
+        }
+
+        .vacation-fill {
+            height: 100%;
+            min-width: 0;
+            border-radius: 999px;
+            transition: width 0.35s ease;
+        }
+
+        .progress-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            height: 124px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .progress-list-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .progress-list-container::-webkit-scrollbar-thumb {
+            background: #d9d9d9;
+            border-radius: 4px;
+        }
+
+        .progress-item {
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: var(--transition);
+            border: 1px solid transparent;
+        }
+
+        .progress-item:hover {
+            background-color: #fff2f0;
+        }
+
+        .progress-item.active {
+            background-color: #fff2f0;
+            border-color: var(--danger-color);
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            margin-bottom: 2px;
+            color: var(--text-secondary);
+        }
+
+        .progress-info span:first-child {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .progress-info span:last-child {
+            flex-shrink: 0;
+        }
+
+        .progress-item.active .progress-info {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+
+        .progress-track {
+            height: 4px;
+            background-color: #f5f5f5;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--danger-color);
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        .search-panel {
+            background: var(--card-bg);
+            padding: 12px 16px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .search-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            align-items: flex-end;
+        }
+
+        .search-grid.collapsed .advanced-item {
+            display: none;
+        }
+
+        .form-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 188px;
+            flex-grow: 1;
+            max-width: 280px;
+        }
+
+        .compact-search-item {
+            gap: 0;
+            width: 168px;
+            max-width: 168px;
+            flex: 0 0 168px;
+        }
+
+        .compact-search-item label {
+            display: none;
+        }
+
+        .form-item label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .form-item input,
+        .form-item select {
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            outline: none;
+            font-size: 12px;
+            width: 100%;
+            height: 28px;
+            background: #fff;
+        }
+
+        .form-item input:focus,
+        .form-item select:focus {
+            border-color: var(--primary-color);
+        }
+
+        .range-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .range-group input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .search-actions-inline {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 8px;
+            min-width: auto;
+            height: 28px;
+            flex: 0 0 auto;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 10px;
+            gap: 12px;
+        }
+
+        .action-left,
+        .action-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .summary-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #fafafa;
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .summary-chip strong {
+            color: var(--primary-color);
+            font-size: 13px;
+        }
+
+        .btn {
+            padding: 4px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            background: white;
+            color: var(--text-main);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+
+        .btn-link {
+            background: transparent;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+
+        .active-filter-tag {
+            display: inline-flex;
+            align-items: center;
+            background: #e6f7ff;
+            color: var(--primary-color);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            border: 1px solid #91d5ff;
+        }
+
+        .active-filter-tag span {
+            cursor: pointer;
+            margin-left: 6px;
+            font-weight: bold;
+        }
+
+        .table-section {
+            flex: 1;
+            min-height: 0;
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .table-toolbar {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .table-toolbar-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .table-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .table-container {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+        }
+
+        .complex-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            table-layout: fixed;
+            min-width: 1580px;
+        }
+
+        .complex-table th,
+        .complex-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            vertical-align: top;
+            word-break: break-word;
+        }
+
+        .complex-table th {
+            background-color: #fafafa;
+            color: var(--text-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .complex-table tbody tr:hover td {
+            background-color: #fafafa;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 4px;
+            line-height: 1.45;
+            gap: 6px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+            width: 68px;
+            flex-shrink: 0;
+        }
+
+        .info-value {
+            color: var(--text-main);
+            flex: 1;
+            min-width: 0;
+        }
+
+        .status-tag,
+        .mode-tag,
+        .warning-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            margin: 0 4px 4px 0;
+        }
+
+        .tag-normal {
+            background: #f6ffed;
+            color: var(--success-color);
+            border-color: #b7eb8f;
+        }
+
+        .tag-error {
+            background: #fff2f0;
+            color: var(--danger-color);
+            border-color: #ffccc7;
+        }
+
+        .tag-warning {
+            background: #fff7e6;
+            color: #d48806;
+            border-color: #ffd591;
+        }
+
+        .tag-muted {
+            background: #fafafa;
+            color: var(--text-secondary);
+            border-color: #d9d9d9;
+        }
+
+        .tag-blue {
+            background: #e6f7ff;
+            color: var(--primary-color);
+            border-color: #91d5ff;
+        }
+
+        .tag-purple {
+            background: #f9f0ff;
+            color: var(--purple-color);
+            border-color: #d3adf7;
+        }
+
+        .tag-yellow {
+            background: #fffbe6;
+            color: #d48806;
+            border-color: #ffe58f;
+        }
+
+        .tag-red {
+            background: #fff1f0;
+            color: var(--danger-color);
+            border-color: #ffa39e;
+        }
+
+        .tag-gray {
+            background: #fafafa;
+            color: #8c8c8c;
+            border-color: #d9d9d9;
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        .pagination-section {
+            padding: 8px 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            gap: 12px;
+        }
+
+        .page-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .page-controls select {
+            padding: 2px 4px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .page-number {
+            min-width: 56px;
+            text-align: center;
+            color: var(--text-main);
+        }
+
+        @media (max-width: 1440px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 960px) {
+            body {
+                overflow: auto;
+                height: auto;
+            }
+
+            .container {
+                height: auto;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-actions-inline,
+            .action-bar,
+            .table-toolbar,
+            .pagination-section {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <div class="page-title">数据看板</div>
+        <button class="btn" id="toggleDashboardBtn" type="button">收起看板 ▲</button>
+    </div>
+
+    <div class="dashboard-section" id="dashboardSection">
+        <div class="dashboard-grid">
+            <div class="card-group">
+                <div class="card-group-title">店铺状态</div>
+                <div class="chart-box" id="statusChart"></div>
+            </div>
+
+            <div class="card-group">
+                <div class="card-group-title">休假模式</div>
+                <div class="chart-box" id="vacationChart"></div>
+            </div>
+
+            <div class="card-group">
+                <div class="card-group-title">运营模式</div>
+                <div class="chart-box" id="opModeChart"></div>
+            </div>
+
+            <div class="card-group">
+                <div class="card-group-title">预警监控</div>
+                <div id="warningProgressContainer" class="progress-list-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="search-panel">
+        <div class="search-grid" id="searchGrid">
+            <div class="form-item compact-search-item">
+                <select id="s_group" class="search-resettable">
+                    <option value="">账号组</option>
+                </select>
+            </div>
+            <div class="form-item compact-search-item">
+                <input type="text" id="s_channel" class="search-resettable" placeholder="来源渠道">
+            </div>
+            <div class="form-item compact-search-item">
+                <input type="text" id="s_storeName" class="search-resettable" placeholder="真实店铺名">
+            </div>
+            <div class="form-item compact-search-item">
+                <select id="s_emailStatus" class="search-resettable">
+                    <option value="">邮箱激活状态</option>
+                    <option value="已激活">已激活</option>
+                    <option value="未激活">未激活</option>
+                </select>
+            </div>
+            <div class="form-item compact-search-item">
+                <select id="s_storeStatus" class="search-resettable">
+                    <option value="">店铺状态</option>
+                    <option value="正常">正常</option>
+                    <option value="失败">失败</option>
+                    <option value="未处理">未处理</option>
+                    <option value="支付方式无效">支付方式无效</option>
+                </select>
+            </div>
+            <div class="form-item compact-search-item">
+                <select id="s_apiStatus" class="search-resettable">
+                    <option value="">API授权状态</option>
+                    <option value="已授权">已授权</option>
+                    <option value="未授权">未授权</option>
+                    <option value="授权异常">授权异常</option>
+                </select>
+            </div>
+            <div class="form-item compact-search-item">
+                <select id="s_invoiceStatus" class="search-resettable">
+                    <option value="">发货单激活状态</option>
+                    <option value="已激活">已激活</option>
+                    <option value="未激活">未激活</option>
+                </select>
+            </div>
+            <div class="form-item compact-search-item">
+                <input type="text" id="s_listingGroupStatus" class="search-resettable" placeholder="刊登账号组状态">
+            </div>
+            <div class="form-item compact-search-item">
+                <select id="s_channelStatus" class="search-resettable">
+                    <option value="">来源渠道状态</option>
+                    <option value="启用">启用</option>
+                    <option value="停用">停用</option>
+                </select>
+            </div>
+            <div class="search-actions-inline">
+                <div id="activeFilterDisplay" style="display: none;"></div>
+                <button class="btn btn-primary" id="searchBtn" type="button">搜索</button>
+                <button class="btn" id="resetBtn" type="button">重置</button>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-primary" type="button" style="display: flex; align-items: center; gap: 4px;">批量操作 <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i></button>
+                <button class="btn" type="button" style="display: flex; align-items: center; gap: 4px;">导出 <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i></button>
+                <button class="btn" type="button">导入</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-section">
+        <div class="table-toolbar">
+            <div class="table-toolbar-title"></div>
+            <div class="table-meta" id="tableMeta"></div>
+        </div>
+        <div class="table-container">
+            <table class="complex-table">
+                <colgroup>
+                    <col style="width: 44px;">
+                    <col style="width: 140px;">
+                    <col style="width: 220px;">
+                    <col style="width: 140px;">
+                    <col style="width: 140px;">
+                    <col style="width: 120px;">
+                    <col style="width: 120px;">
+                    <col style="width: 120px;">
+                    <col style="width: 140px;">
+                    <col style="width: 120px;">
+                    <col style="width: 120px;">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th style="text-align: center;"><input type="checkbox"></th>
+                        <th>账号组</th>
+                        <th>来源渠道</th>
+                        <th>&nbsp;</th>
+                        <th>&nbsp;</th>
+                        <th>&nbsp;</th>
+                        <th>&nbsp;</th>
+                        <th>&nbsp;</th>
+                        <th>&nbsp;</th>
+                        <th>&nbsp;</th>
+                        <th>&nbsp;</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div class="pagination-section">
+            <div>共 <span id="totalCount">0</span> 条，当前第 <span id="currentPage">1</span>/<span id="totalPages">1</span> 页</div>
+            <div class="page-controls">
+                <select id="pageSizeSelect">
+                    <option value="10">10 条/页</option>
+                    <option value="20" selected>20 条/页</option>
+                    <option value="50">50 条/页</option>
+                </select>
+                <button class="btn" id="prevPageBtn" type="button" style="padding: 2px 8px;">上一页</button>
+                <div class="page-number" id="pageNumberLabel">1 / 1</div>
+                <button class="btn" id="nextPageBtn" type="button" style="padding: 2px 8px;">下一页</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const numberFormatter = new Intl.NumberFormat("zh-CN");
+
+    const vacationConfig = [
+        { name: "在售", color: "#1890ff", count: 126 },
+        { name: "非在售(主动)", color: "#faad14", count: 52 },
+        { name: "非在售(待确认)", color: "#722ed1", count: 34 },
+        { name: "异常数据", color: "#ff4d4f", count: 16 },
+        { name: "无采集数据", color: "#bfbfbf", count: 12 }
+    ];
+
+    const exampleLedgerRows = [
+        { group: "Z01001", channel: "Amazon-Z01001-BR", site: "巴西站" },
+        { group: "Z01002", channel: "Amazon-Z01002-MX", site: "墨西哥站" },
+        { group: "Z01004", channel: "Amazon-Z01004-US", site: "美国站" },
+        { group: "Z01006", channel: "Amazon-Z01006-CA", site: "加拿大站" }
+    ];
+
+    const managerPool = ["王建", "刘梅", "周八", "孙七", "吴十", "张三", "李四", "赵六"];
+    const deptPool = [
+        "账号部 > 亚马逊FBA",
+        "账号部 > 亚马逊FBM",
+        "账号部 > Shopee",
+        "账号部 > TikTok业务组",
+        "账号部 > eBay业务组",
+        "账号部 > 速卖通"
+    ];
+
+    let rawData = [];
+    let searchedData = [];
+    let currentData = [];
+    let currentPage = 1;
+    let pageSize = 20;
+    let activeFilterType = null;
+    let activeFilterValue = null;
+    let activeFilterName = null;
+    const charts = {};
+
+    function formatNumber(value) {
+        return numberFormatter.format(value || 0);
+    }
+
+    function formatPercent(value, total) {
+        if (!total) return "0%";
+        const percent = (value / total) * 100;
+        if (percent > 0 && percent < 0.1) return "0.1%";
+        return `${percent.toFixed(percent >= 10 ? 1 : 2)}%`;
+    }
+
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function buildWarningFlags(vacationMode, index) {
+        const flags = {
+            nearExpiry: false,
+            expired: false,
+            fbmError: false,
+            infringement: false,
+            prohibited: false,
+            policy: false,
+            noSafetyPic: false
+        };
+
+        if (vacationMode === "在售") {
+            flags.nearExpiry = index % 11 === 0;
+            flags.fbmError = index % 17 === 0;
+            flags.infringement = index % 23 === 0;
+            flags.prohibited = index % 29 === 0;
+            flags.policy = index % 13 === 0;
+            flags.noSafetyPic = index % 19 === 0;
+        }
+
+        if (vacationMode === "非在售(主动)") {
+            flags.nearExpiry = index % 4 === 0;
+            flags.expired = index % 8 === 0;
+            flags.fbmError = index % 3 === 0;
+            flags.policy = index % 2 === 0;
+            flags.noSafetyPic = index % 7 === 0;
+        }
+
+        if (vacationMode === "非在售(待确认)") {
+            flags.nearExpiry = index % 2 === 0;
+            flags.expired = index % 4 === 0;
+            flags.fbmError = index % 3 === 0;
+            flags.policy = index % 2 === 1;
+            flags.infringement = index % 6 === 0;
+        }
+
+        if (vacationMode === "异常数据") {
+            flags.nearExpiry = true;
+            flags.expired = true;
+            flags.fbmError = true;
+            flags.infringement = true;
+            flags.prohibited = true;
+            flags.policy = true;
+            flags.noSafetyPic = true;
+        }
+
+        if (vacationMode === "无采集数据") {
+            flags.expired = index % 2 === 0;
+            flags.fbmError = index % 4 === 0;
+            flags.prohibited = index % 5 === 0;
+            flags.policy = index % 3 === 0;
+            flags.noSafetyPic = true;
+        }
+
+        return flags;
+    }
+
+    function getStatusByVacation(vacationMode, index) {
+        if (vacationMode === "在售") {
+            return index % 14 < 2 ? "失败" : "正常";
+        }
+        if (vacationMode === "非在售(主动)") {
+            return index % 6 < 2 ? "未处理" : "正常";
+        }
+        if (vacationMode === "非在售(待确认)") {
+            return index % 3 === 0 ? "失败" : "未处理";
+        }
+        if (vacationMode === "异常数据") {
+            return index % 4 === 0 ? "未处理" : "失败";
+        }
+        return index % 2 === 0 ? "支付方式无效" : "未处理";
+    }
+
+    function getOpModeByVacation(vacationMode, index) {
+        if (vacationMode === "在售") {
+            const value = index % 10;
+            if (value < 6) return "FBA";
+            if (value < 8) return "FBM";
+            if (value < 9) return "混合";
+            return "-";
+        }
+        if (vacationMode === "非在售(主动)") {
+            return index % 4 === 0 ? "混合" : "FBM";
+        }
+        if (vacationMode === "非在售(待确认)") {
+            return index % 3 === 0 ? "-" : "FBM";
+        }
+        if (vacationMode === "异常数据") {
+            return index % 2 === 0 ? "-" : "混合";
+        }
+        return index % 3 === 0 ? "FBM" : "-";
+    }
+
+    function getSalesByVacation(vacationMode, id, index) {
+        if (vacationMode === "在售") {
+            return 120 + ((id * 37 + index * 11) % 2860);
+        }
+        if (vacationMode === "非在售(主动)") {
+            return (index * 19) % 180;
+        }
+        if (vacationMode === "非在售(待确认)") {
+            return (index * 7) % 60;
+        }
+        return 0;
+    }
+
+    function buildWarningTags(flags) {
+        const tags = [];
+        if (flags.nearExpiry) tags.push("近效期预警");
+        if (flags.expired) tags.push("过期预警");
+        if (flags.fbmError) tags.push("FBM业务员设置错误预警");
+        if (flags.noSafetyPic) tags.push("安全图片未上传预警");
+        if (flags.infringement) tags.push("侵权预警");
+        if (flags.prohibited) tags.push("禁售预警");
+        if (flags.policy) tags.push("政策预警");
+        return tags;
+    }
+
+    function buildMockData() {
+        let id = 1;
+        const stores = [];
+
+        vacationConfig.forEach((config, configIndex) => {
+            for (let i = 0; i < config.count; i += 1) {
+                const example = exampleLedgerRows[(id - 1) % exampleLedgerRows.length];
+                const group = example.group;
+                const manager = managerPool[(id + i) % managerPool.length];
+                const dept = deptPool[(id + configIndex) % deptPool.length];
+                const status = getStatusByVacation(config.name, i);
+                const opMode = getOpModeByVacation(config.name, i);
+                const warningFlags = buildWarningFlags(config.name, i);
+                const warningTags = buildWarningTags(warningFlags);
+                const sales30d = getSalesByVacation(config.name, id, i);
+
+                stores.push({
+                    id,
+                    group,
+                    channel: example.channel,
+                    storeName: example.channel,
+                    account: `acct_${group.toLowerCase()}`,
+                    manager,
+                    dept,
+                    site: example.site,
+                    emailStatus: id % 4 === 0 ? "未激活" : "已激活",
+                    status,
+                    apiStatus: id % 5 === 0 ? "授权异常" : (id % 3 === 0 ? "未授权" : "已授权"),
+                    invoiceStatus: id % 4 === 0 ? "未激活" : "已激活",
+                    listingGroupStatus: id % 3 === 0 ? "异常" : "正常",
+                    channelStatus: id % 6 === 0 ? "停用" : "启用",
+                    vacationMode: config.name,
+                    opMode,
+                    sales30d,
+                    warningFlags,
+                    warningTags,
+                    level: ["S", "A", "B", "C"][id % 4],
+                    createTime: `2025-${String((id % 12) + 1).padStart(2, "0")}-${String((id % 27) + 1).padStart(2, "0")}`,
+                    lastCollectTime: `2026-05-${String((id % 20) + 1).padStart(2, "0")} ${String(id % 24).padStart(2, "0")}:${String(id % 60).padStart(2, "0")}`
+                });
+                id += 1;
+            }
+        });
+
+        return stores;
+    }
+
+    function setOptions(selectId, values, placeholderText = "全部") {
+        const select = document.getElementById(selectId);
+        select.innerHTML = `<option value="">${escapeHtml(placeholderText)}</option>${values.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("")}`;
+    }
+
+    function initSelects() {
+        const groups = [...new Set(rawData.map(item => item.group))];
+        setOptions("s_group", groups, "账号组");
+    }
+
+    function getControlValue(id) {
+        const element = document.getElementById(id);
+        return element ? String(element.value || "").trim() : "";
+    }
+
+    function getBaseFilteredData() {
+        const groupValue = getControlValue("s_group");
+        const channelValue = getControlValue("s_channel").toLowerCase();
+        const storeNameValue = getControlValue("s_storeName").toLowerCase();
+        const emailStatusValue = getControlValue("s_emailStatus");
+        const storeStatusValue = getControlValue("s_storeStatus");
+        const apiStatusValue = getControlValue("s_apiStatus");
+        const invoiceStatusValue = getControlValue("s_invoiceStatus");
+        const listingGroupStatusValue = getControlValue("s_listingGroupStatus").toLowerCase();
+        const channelStatusValue = getControlValue("s_channelStatus");
+
+        return rawData.filter(item => {
+            if (groupValue && item.group !== groupValue) return false;
+            if (channelValue && !item.channel.toLowerCase().includes(channelValue)) return false;
+            if (storeNameValue && !item.storeName.toLowerCase().includes(storeNameValue)) return false;
+            if (emailStatusValue && item.emailStatus !== emailStatusValue) return false;
+            if (storeStatusValue && item.status !== storeStatusValue) return false;
+            if (apiStatusValue && item.apiStatus !== apiStatusValue) return false;
+            if (invoiceStatusValue && item.invoiceStatus !== invoiceStatusValue) return false;
+            if (listingGroupStatusValue && !item.listingGroupStatus.toLowerCase().includes(listingGroupStatusValue)) return false;
+            if (channelStatusValue && item.channelStatus !== channelStatusValue) return false;
+            return true;
+        });
+    }
+
+    function matchesWarningFilter(item, warningKey) {
+        return Boolean(item.warningFlags[warningKey]);
+    }
+
+    function applyDashboardFilter(list) {
+        return list.filter(item => {
+            if (activeFilterType === "status") {
+                return item.status === activeFilterValue;
+            }
+            if (activeFilterType === "vacationMode") {
+                return item.vacationMode === activeFilterValue;
+            }
+            if (activeFilterType === "opMode") {
+                return item.opMode === activeFilterValue;
+            }
+            if (activeFilterType === "warning") {
+                return matchesWarningFilter(item, activeFilterValue);
+            }
+            return true;
+        });
+    }
+
+    function getDashboardCounts(list) {
+        const counts = {
+            status: { "正常": 0, "失败": 0, "未处理": 0, "支付方式无效": 0 },
+            vacationMode: { "在售": 0, "非在售(主动)": 0, "非在售(待确认)": 0, "异常数据": 0, "无采集数据": 0 },
+            opMode: { "混合": 0, "FBA": 0, "FBM": 0, "-": 0 },
+            warning: { nearExpiry: 0, expired: 0, fbmError: 0, noSafetyPic: 0, infringement: 0, prohibited: 0, policy: 0 }
+        };
+
+        list.forEach(item => {
+            if (counts.status[item.status] !== undefined) counts.status[item.status] += 1;
+            if (counts.vacationMode[item.vacationMode] !== undefined) counts.vacationMode[item.vacationMode] += 1;
+            if (counts.opMode[item.opMode] !== undefined) counts.opMode[item.opMode] += 1;
+            if (item.warningFlags.nearExpiry) counts.warning.nearExpiry += 1;
+            if (item.warningFlags.expired) counts.warning.expired += 1;
+            if (item.warningFlags.fbmError) counts.warning.fbmError += 1;
+            if (item.warningFlags.noSafetyPic) counts.warning.noSafetyPic += 1;
+            if (item.warningFlags.infringement) counts.warning.infringement += 1;
+            if (item.warningFlags.prohibited) counts.warning.prohibited += 1;
+            if (item.warningFlags.policy) counts.warning.policy += 1;
+        });
+
+        return counts;
+    }
+
+    function renderStatusChart(counts, total) {
+        const chart = echarts.init(document.getElementById("statusChart"));
+        charts.status = chart;
+        chart.setOption({
+            tooltip: {
+                trigger: "item",
+                formatter: params => `${params.name}<br/>${formatNumber(params.value)} 家 (${formatPercent(params.value, total)})`
+            },
+            legend: {
+                bottom: "0%",
+                left: "center",
+                itemWidth: 8,
+                itemHeight: 8,
+                textStyle: { fontSize: 10 }
+            },
+            series: [{
+                type: "pie",
+                radius: ["45%", "75%"],
+                center: ["50%", "42%"],
+                itemStyle: {
+                    borderRadius: 4,
+                    borderColor: "#fff",
+                    borderWidth: 2
+                },
+                label: { show: false },
+                data: [
+                    { value: counts["正常"], name: "正常", itemStyle: { color: "#1890ff" } },
+                    { value: counts["失败"], name: "失败", itemStyle: { color: "#ff4d4f" } },
+                    { value: counts["未处理"], name: "未处理", itemStyle: { color: "#faad14" } },
+                    { value: counts["支付方式无效"], name: "支付方式无效", itemStyle: { color: "#bfbfbf" } }
+                ]
+            }]
+        });
+        chart.off("click");
+        chart.on("click", params => applyFilter("status", params.name, `${params.name}店铺`));
+    }
+
+    function renderVacationChart(counts) {
+        const chart = echarts.init(document.getElementById("vacationChart"));
+        charts.vacation = chart;
+        const labels = vacationConfig.map(item => item.name);
+        const values = vacationConfig.map(item => counts[item.name] || 0);
+        const total = values.reduce((sum, value) => sum + value, 0);
+
+        chart.setOption({
+            tooltip: {
+                trigger: "axis",
+                axisPointer: { type: "shadow" },
+                formatter: params => {
+                    const item = params[0];
+                    return `${item.name}<br/>${formatNumber(values[item.dataIndex])} 家 (${formatPercent(values[item.dataIndex], total)})`;
+                }
+            },
+            grid: { left: 72, right: 56, bottom: 0, top: 6, containLabel: false },
+            xAxis: {
+                type: "value",
+                show: false
+            },
+            yAxis: {
+                type: "category",
+                data: labels,
+                axisTick: { show: false },
+                axisLine: { show: false },
+                axisLabel: {
+                    fontSize: 10,
+                    color: "#666"
+                }
+            },
+            series: [{
+                type: "bar",
+                data: values.map((value, index) => ({
+                    value,
+                    itemStyle: {
+                        color: vacationConfig[index].color,
+                        borderRadius: [0, 4, 4, 0]
+                    }
+                })),
+                barWidth: 8,
+                showBackground: true,
+                backgroundStyle: {
+                    color: "#f5f5f5",
+                    borderRadius: 4
+                },
+                label: {
+                    show: true,
+                    position: "right",
+                    distance: 6,
+                    color: "#666",
+                    fontSize: 10,
+                    formatter: params => formatNumber(values[params.dataIndex])
+                }
+            }]
+        });
+        chart.off("click");
+        chart.on("click", params => applyFilter("vacationMode", params.name, `${params.name}店铺`));
+    }
+
+    function renderOpModeChart(counts) {
+        const chart = echarts.init(document.getElementById("opModeChart"));
+        charts.opMode = chart;
+        chart.setOption({
+            tooltip: {
+                trigger: "axis",
+                axisPointer: { type: "shadow" },
+                formatter: params => {
+                    const item = params[0];
+                    return `${item.name}<br/>${formatNumber(item.value)} 家`;
+                }
+            },
+            grid: { left: "3%", right: "4%", bottom: "0%", top: "10%", containLabel: true },
+            xAxis: {
+                type: "category",
+                data: ["混合", "FBA", "FBM", "未设置"],
+                axisLabel: { interval: 0, fontSize: 10 }
+            },
+            yAxis: {
+                type: "value",
+                splitLine: { lineStyle: { type: "dashed" } }
+            },
+            series: [{
+                type: "bar",
+                barWidth: "40%",
+                itemStyle: {
+                    borderRadius: [4, 4, 0, 0],
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: "#40a9ff" },
+                        { offset: 1, color: "#1890ff" }
+                    ])
+                },
+                data: [counts["混合"], counts["FBA"], counts["FBM"], counts["-"]]
+            }]
+        });
+        chart.off("click");
+        chart.on("click", params => applyFilter("opMode", params.name === "未设置" ? "-" : params.name, `${params.name}模式`));
+    }
+
+    function renderWarningList(warningCounts) {
+        const warningConfig = [
+            { key: "nearExpiry", name: "近效期预警" },
+            { key: "expired", name: "过期预警" },
+            { key: "fbmError", name: "FBM业务员设置错误预警" },
+            { key: "noSafetyPic", name: "安全图片未上传预警" },
+            { key: "infringement", name: "侵权预警" },
+            { key: "prohibited", name: "禁售预警" },
+            { key: "policy", name: "政策预警" }
+        ];
+        const maxValue = Math.max(...warningConfig.map(item => warningCounts[item.key] || 0), 1);
+        const container = document.getElementById("warningProgressContainer");
+        container.innerHTML = warningConfig.map(item => {
+            const value = warningCounts[item.key] || 0;
+            const percent = (value / maxValue) * 100;
+            const active = activeFilterType === "warning" && activeFilterValue === item.key ? "active" : "";
+            return `
+                <div class="progress-item ${active}" data-warning-key="${item.key}">
+                    <div class="progress-info">
+                        <span>${escapeHtml(item.name)}</span>
+                        <span>${formatNumber(value)}</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width:${percent}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function getStatusTagClass(status) {
+        if (status === "正常") return "tag-normal";
+        if (status === "未处理") return "tag-warning";
+        return "tag-error";
+    }
+
+    function getVacationTagClass(vacationMode) {
+        if (vacationMode === "在售") return "tag-blue";
+        if (vacationMode === "非在售(待确认)") return "tag-purple";
+        if (vacationMode === "异常数据") return "tag-red";
+        if (vacationMode === "无采集数据") return "tag-gray";
+        return "tag-yellow";
+    }
+
+    function getOpModeTagClass(opMode) {
+        if (opMode === "FBA") return "tag-blue";
+        if (opMode === "FBM") return "tag-purple";
+        if (opMode === "混合") return "tag-yellow";
+        return "tag-muted";
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById("tableBody");
+        const uniqueTableData = [];
+        const seen = new Set();
+        currentData.forEach(item => {
+            const key = `${item.group}|${item.channel}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            uniqueTableData.push(item);
+        });
+
+        const total = uniqueTableData.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        if (currentPage > totalPages) currentPage = totalPages;
+        const start = (currentPage - 1) * pageSize;
+        const pageData = uniqueTableData.slice(start, start + pageSize);
+
+        if (pageData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" class="empty-state">暂无符合条件的数据</td></tr>`;
+        } else {
+            tbody.innerHTML = pageData.map(item => {
+                return `
+                    <tr>
+                        <td style="text-align:center;"><input type="checkbox"></td>
+                        <td>${escapeHtml(item.group)}</td>
+                        <td>${escapeHtml(item.channel)}</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        document.getElementById("tableMeta").textContent = "";
+        document.getElementById("totalCount").textContent = formatNumber(total);
+        document.getElementById("currentPage").textContent = String(currentPage);
+        document.getElementById("totalPages").textContent = String(totalPages);
+        document.getElementById("pageNumberLabel").textContent = `${currentPage} / ${totalPages}`;
+        document.getElementById("prevPageBtn").disabled = currentPage <= 1;
+        document.getElementById("nextPageBtn").disabled = currentPage >= totalPages;
+        lucide.createIcons();
+    }
+
+    function renderDashboard() {
+        Object.values(charts).forEach(chart => chart && chart.dispose());
+        const counts = getDashboardCounts(searchedData);
+        const total = searchedData.length;
+        renderStatusChart(counts.status, total);
+        renderVacationChart(counts.vacationMode);
+        renderOpModeChart(counts.opMode);
+        renderWarningList(counts.warning);
+    }
+
+    function updateActiveFilterTag() {
+        const container = document.getElementById("activeFilterDisplay");
+        if (!activeFilterType || !activeFilterName) {
+            container.style.display = "none";
+            container.innerHTML = "";
+            return;
+        }
+        container.style.display = "inline-flex";
+        container.innerHTML = `<div class="active-filter-tag">筛选: ${escapeHtml(activeFilterName)}<span id="clearFilterBtn">×</span></div>`;
+        const clearBtn = document.getElementById("clearFilterBtn");
+        if (clearBtn) {
+            clearBtn.addEventListener("click", event => {
+                event.stopPropagation();
+                clearFilter();
+            });
+        }
+    }
+
+    function executeFilter(resetPage = false) {
+        searchedData = getBaseFilteredData();
+        currentData = applyDashboardFilter(searchedData);
+        if (resetPage) currentPage = 1;
+        renderDashboard();
+        renderTable();
+        updateActiveFilterTag();
+    }
+
+    function applyFilter(type, value, name) {
+        if (activeFilterType === type && activeFilterValue === value) {
+            clearFilter();
+            return;
+        }
+        activeFilterType = type;
+        activeFilterValue = value;
+        activeFilterName = name;
+        executeFilter(true);
+    }
+
+    function clearFilter() {
+        activeFilterType = null;
+        activeFilterValue = null;
+        activeFilterName = null;
+        executeFilter(true);
+    }
+
+    function resetSearch() {
+        document.querySelectorAll(".search-resettable").forEach(element => {
+            element.value = "";
+        });
+        activeFilterType = null;
+        activeFilterValue = null;
+        activeFilterName = null;
+        currentPage = 1;
+        executeFilter(true);
+    }
+
+    function changePage(delta) {
+        const totalPages = Math.max(1, Math.ceil(currentData.length / pageSize));
+        const nextPage = currentPage + delta;
+        if (nextPage < 1 || nextPage > totalPages) return;
+        currentPage = nextPage;
+        renderTable();
+    }
+
+    function toggleDashboard() {
+        const dashboard = document.getElementById("dashboardSection");
+        dashboard.classList.toggle("collapsed");
+        document.getElementById("toggleDashboardBtn").textContent = dashboard.classList.contains("collapsed") ? "展开看板 ▼" : "收起看板 ▲";
+    }
+
+    function bindEvents() {
+        document.getElementById("toggleDashboardBtn").addEventListener("click", toggleDashboard);
+        document.getElementById("searchBtn").addEventListener("click", () => executeFilter(true));
+        document.getElementById("resetBtn").addEventListener("click", resetSearch);
+        document.getElementById("prevPageBtn").addEventListener("click", () => changePage(-1));
+        document.getElementById("nextPageBtn").addEventListener("click", () => changePage(1));
+        document.getElementById("pageSizeSelect").addEventListener("change", event => {
+            pageSize = Number(event.target.value) || 20;
+            currentPage = 1;
+            renderTable();
+        });
+
+        document.getElementById("warningProgressContainer").addEventListener("click", event => {
+            const target = event.target.closest("[data-warning-key]");
+            if (!target) return;
+            const warningKey = target.getAttribute("data-warning-key");
+            const warningNameMap = {
+                nearExpiry: "近效期预警",
+                expired: "过期预警",
+                fbmError: "FBM业务员设置错误预警",
+                noSafetyPic: "安全图片未上传预警",
+                infringement: "侵权预警",
+                prohibited: "禁售预警",
+                policy: "政策预警"
+            };
+            applyFilter("warning", warningKey, warningNameMap[warningKey] || "预警");
+        });
+
+        window.addEventListener("resize", () => {
+            Object.values(charts).forEach(chart => chart && chart.resize());
+        });
+    }
+
+    function initPage() {
+        rawData = buildMockData();
+        pageSize = Number(document.getElementById("pageSizeSelect").value) || 20;
+        initSelects();
+        bindEvents();
+        executeFilter(true);
+        lucide.createIcons();
+    }
+
+    initPage();
+</script>
+</body>
+</html>

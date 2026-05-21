@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账号台账管理 - 07批量编辑</title>
+    <style>
+        :root {
+            --primary-color: #1890ff;
+            --primary-hover: #40a9ff;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-secondary: #666666;
+            --text-light: #8c8c8c;
+            --border-color: #e8e8e8;
+            --danger-color: #ff4d4f;
+            --shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+            --border-radius: 6px;
+            --readonly-bg: #fafafa;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
+        }
+
+        .page-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .page-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .page-title::before {
+            content: "";
+            width: 3px;
+            height: 14px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        .demo-card,
+        .result-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+        }
+
+        .demo-card {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .demo-desc {
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .demo-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .btn {
+            height: 32px;
+            padding: 0 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: #ffffff;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+            color: #ffffff;
+        }
+
+        .btn[disabled] {
+            background: #f5f5f5;
+            color: #bfbfbf;
+            border-color: var(--border-color);
+            cursor: not-allowed;
+        }
+
+        .api-tip {
+            padding: 12px;
+            border-radius: 4px;
+            background: #fafafa;
+            border: 1px dashed #d9d9d9;
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .result-card h3 {
+            font-size: 13px;
+            margin-bottom: 12px;
+            color: var(--text-main);
+        }
+
+        .result-output {
+            min-height: 180px;
+            max-height: 320px;
+            overflow: auto;
+            padding: 12px;
+            border-radius: 4px;
+            background: #0f172a;
+            color: #dbeafe;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 24px;
+            z-index: 1000;
+        }
+
+        .modal-overlay.is-open {
+            display: flex;
+        }
+
+        .modal-dialog {
+            width: min(1680px, 100%);
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .close-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            background: #f5f5f5;
+            color: var(--text-main);
+        }
+
+        .modal-body {
+            padding: 16px 20px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .table-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .summary-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #e6f4ff;
+            color: #0958d9;
+        }
+
+        .summary-warning {
+            color: var(--danger-color);
+        }
+
+        .summary-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .table-wrapper {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .table-scroll {
+            max-height: 500px;
+            overflow: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 2200px;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #fafafa;
+            color: #595959;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+        }
+
+        tbody td {
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            vertical-align: top;
+            background: #ffffff;
+            font-size: 11px;
+        }
+
+        tbody tr:hover td {
+            background: #fcfcfc;
+        }
+
+        tbody tr.row-selected td {
+            background: #f0f7ff;
+        }
+
+        tbody tr.row-selected:hover td {
+            background: #e6f4ff;
+        }
+
+        th:last-child,
+        td:last-child {
+            border-right: none;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .readonly-box,
+        .field-input,
+        .field-select,
+        .field-textarea {
+            width: 100%;
+            min-height: 30px;
+            padding: 5px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            background: #ffffff;
+            color: var(--text-main);
+            outline: none;
+            transition: all 0.2s ease;
+            font-size: 11px;
+        }
+
+        .readonly-box {
+            background: var(--readonly-bg);
+            color: var(--text-secondary);
+            border-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .field-input::placeholder,
+        .field-textarea::placeholder {
+            color: #bfbfbf;
+        }
+
+        .field-input:focus,
+        .field-select:focus,
+        .field-textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.12);
+        }
+
+        .field-textarea {
+            min-height: 48px;
+            resize: vertical;
+            overflow: auto;
+            line-height: 1.5;
+        }
+
+        .field-textarea-compact {
+            min-height: 30px;
+            line-height: 1.4;
+        }
+
+        .check-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .check-input {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+        }
+
+        .th-content {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .th-text {
+            line-height: 1.3;
+        }
+
+        .column-batch-btn {
+            padding: 0 6px;
+            min-width: 52px;
+            height: 20px;
+            border: 1px solid #d0e7ff;
+            border-radius: 3px;
+            background: #f0f7ff;
+            color: #1677ff;
+            font-size: 11px;
+            line-height: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .column-batch-btn:hover {
+            border-color: #91caff;
+            background: #e6f4ff;
+        }
+
+        .column-batch-btn[disabled] {
+            background: #f5f5f5;
+            color: #bfbfbf;
+            border-color: #e8e8e8;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            border-color: #ffccc7;
+            color: var(--danger-color);
+            background: #fff2f0;
+        }
+
+        .btn-danger:hover {
+            border-color: #ff7875;
+            color: #ffffff;
+            background: #ff7875;
+        }
+
+        .btn-danger[disabled] {
+            background: #f5f5f5;
+            color: #bfbfbf;
+            border-color: var(--border-color);
+        }
+
+        .empty-state {
+            padding: 48px 16px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-light);
+            background: #ffffff;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 14px 20px 18px;
+            border-top: 1px solid var(--border-color);
+            background: #ffffff;
+        }
+
+        .message-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.28);
+            z-index: 1100;
+        }
+
+        .message-overlay.is-open {
+            display: flex;
+        }
+
+        .message-dialog {
+            width: min(420px, 100%);
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+            overflow: hidden;
+        }
+
+        .message-header {
+            padding: 16px 20px 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .message-body {
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+
+        .message-footer {
+            display: flex;
+            justify-content: flex-end;
+            padding: 0 20px 18px;
+        }
+
+        @media (max-width: 1280px) {
+            body {
+                padding: 12px;
+            }
+
+            .modal-overlay {
+                padding: 12px;
+            }
+
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-shell">
+        <div class="page-title">账号台账批量编辑弹窗组件</div>
+
+        <div class="demo-card">
+            <div class="demo-desc">
+                页面内置显示/隐藏控制、外部数据注入、关闭回调和保存回调示例。
+                可直接点击按钮预览，也可通过 <code>window.BatchEditChannelModal.open(selectedChannels, options)</code> 传入选中渠道列表。
+            </div>
+
+            <div class="demo-actions">
+                <button class="btn btn-primary" type="button" id="openSixBtn">打开 6 条示例数据</button>
+                <button class="btn" type="button" id="openTwentyBtn">触发超出 30 条提示</button>
+                <button class="btn" type="button" id="openEmptyBtn">触发未选中提示</button>
+            </div>
+
+            <div class="api-tip">
+                <div><strong>外部调用：</strong><code>window.BatchEditChannelModal.open(list, { onClose, onSave })</code></div>
+                <div><strong>回调返回：</strong>关闭时返回当前编辑态和关闭来源，保存时返回全部行的最新数据。</div>
+                <div><strong>数据限制：</strong>单次最多支持批量编辑 30 条来源渠道，超过 30 条时直接提示，不自动截断。</div>
+            </div>
+        </div>
+
+        <div class="result-card">
+            <h3>最近一次回调结果</h3>
+            <pre class="result-output" id="resultOutput">点击上方按钮打开弹窗后，这里会展示关闭或保存回调返回的数据。</pre>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="batchEditModal">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title" id="modalTitle">批量编辑</div>
+                </div>
+                <button class="close-btn" type="button" id="modalCloseBtn" aria-label="关闭弹窗">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="table-summary">
+                    <div class="summary-badge" id="selectedCountTip">已选来源渠道：0 / 30</div>
+                    <div class="summary-actions">
+                        <div class="summary-warning" id="limitTip">单次最多支持批量编辑 30 条来源渠道</div>
+                        <button class="btn btn-danger" type="button" id="deleteSelectedBtn" disabled>删除选中</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <div class="table-scroll">
+                        <table>
+                            <colgroup>
+                                <col style="width: 56px;">
+                                <col style="width: 160px;">
+                                <col style="width: 220px;">
+                                <col style="width: 120px;">
+                                <col style="width: 160px;">
+                                <col style="width: 150px;">
+                                <col style="width: 140px;">
+                                <col style="width: 160px;">
+                                <col style="width: 180px;">
+                                <col style="width: 180px;">
+                                <col style="width: 220px;">
+                                <col style="width: 140px;">
+                                <col style="width: 140px;">
+                                <col style="width: 180px;">
+                                <col style="width: 220px;">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th class="check-cell"><input class="check-input" type="checkbox" id="selectAllCheckbox" aria-label="全选来源渠道"></th>
+                                    <th><div class="th-content"><span class="th-text">来源渠道</span><button class="column-batch-btn" type="button" data-batch-field="sourceChannel">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">备注</span><button class="column-batch-btn" type="button" data-batch-field="note">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">运营模式</span><button class="column-batch-btn" type="button" data-batch-field="operationMode">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">绑定品牌</span><button class="column-batch-btn" type="button" data-batch-field="bindingBrand">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">品牌授权时间</span><button class="column-batch-btn" type="button" data-batch-field="brandAuthorizationTime">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">品牌角色</span><button class="column-batch-btn" type="button" data-batch-field="brandRole">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">品牌权益</span><button class="column-batch-btn" type="button" data-batch-field="brandRights">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">授权异常情况备注</span><button class="column-batch-btn" type="button" data-batch-field="authorizationExceptionRemark">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">停用时间</span><button class="column-batch-btn" type="button" data-batch-field="disableTime">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">停用原因</span><button class="column-batch-btn" type="button" data-batch-field="disableReason">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">是否源头站点</span><button class="column-batch-btn" type="button" data-batch-field="isSourceSite">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">是否整套停用</span><button class="column-batch-btn" type="button" data-batch-field="isFullDisabled">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">停用恢复时间</span><button class="column-batch-btn" type="button" data-batch-field="recoveryTime">批量更新</button></div></th>
+                                    <th><div class="th-content"><span class="th-text">停用备注</span><button class="column-batch-btn" type="button" data-batch-field="disableRemark">批量更新</button></div></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn" type="button" id="cancelBtn">取消</button>
+                <button class="btn btn-primary" type="button" id="saveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="message-overlay" id="messageModal">
+        <div class="message-dialog" role="dialog" aria-modal="true" aria-labelledby="messageTitle">
+            <div class="message-header" id="messageTitle">提示</div>
+            <div class="message-body" id="messageContent">请至少勾选一条来源渠道后再进行批量编辑。</div>
+            <div class="message-footer">
+                <button class="btn btn-primary" type="button" id="messageConfirmBtn">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modalElement = document.getElementById("batchEditModal");
+        const messageModal = document.getElementById("messageModal");
+        const tableBody = document.getElementById("tableBody");
+        const modalTitle = document.getElementById("modalTitle");
+        const selectedCountTip = document.getElementById("selectedCountTip");
+        const limitTip = document.getElementById("limitTip");
+        const resultOutput = document.getElementById("resultOutput");
+        const saveBtn = document.getElementById("saveBtn");
+        const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
+        const selectAllCheckbox = document.getElementById("selectAllCheckbox");
+        const columnBatchButtons = Array.from(document.querySelectorAll("[data-batch-field]"));
+        const messageContent = document.getElementById("messageContent");
+        const messageConfirmBtn = document.getElementById("messageConfirmBtn");
+        const MAX_SELECTION = 30;
+
+        const modalState = {
+            rows: [],
+            onClose: null,
+            onSave: null,
+            selectedRowIds: new Set()
+        };
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function cloneRows(rows) {
+            return rows.map(function (item) {
+                return Object.assign({}, item);
+            });
+        }
+
+        function normalizeItem(item, index) {
+            return {
+                id: item.id ?? "channel-" + (index + 1),
+                sourceChannel: item.sourceChannel ?? item.channel ?? item.channelName ?? item["来源渠道"] ?? "",
+                note: item.note ?? item.remark ?? item["备注"] ?? "",
+                operationMode: item.operationMode ?? item["运营模式"] ?? "",
+                bindingBrand: item.bindingBrand ?? item.brand ?? item.brandName ?? item["绑定品牌"] ?? "",
+                brandAuthorizationTime: item.brandAuthorizationTime ?? item.brandAuthorizationDate ?? item["品牌授权时间"] ?? "",
+                brandRole: item.brandRole ?? item["品牌角色"] ?? "",
+                brandRights: item.brandRights ?? item["品牌权益"] ?? "",
+                authorizationExceptionRemark: item.authorizationExceptionRemark ?? item.authorizationExceptionNote ?? item["授权异常情况备注"] ?? "",
+                disableTime: item.disableTime ?? item["停用时间"] ?? "",
+                disableReason: item.disableReason ?? item["停用原因"] ?? "",
+                isSourceSite: item.isSourceSite ?? item["是否源头站点"] ?? "",
+                isFullDisabled: item.isFullDisabled ?? item["是否整套停用"] ?? "",
+                recoveryTime: item.recoveryTime ?? item["停用恢复时间"] ?? "",
+                disableRemark: item.disableRemark ?? item["停用备注"] ?? ""
+            };
+        }
+
+        function normalizeRows(selectedChannels) {
+            return (Array.isArray(selectedChannels) ? selectedChannels : []).map(normalizeItem);
+        }
+
+        function openMessageModal(message) {
+            messageContent.textContent = message;
+            messageModal.classList.add("is-open");
+        }
+
+        function closeMessageModal() {
+            messageModal.classList.remove("is-open");
+        }
+
+        function pruneSelectedRows() {
+            const validIds = new Set(modalState.rows.map(function (row) {
+                return row.id;
+            }));
+
+            modalState.selectedRowIds.forEach(function (rowId) {
+                if (!validIds.has(rowId)) {
+                    modalState.selectedRowIds.delete(rowId);
+                }
+            });
+        }
+
+        function getSelectedRowCount() {
+            let selectedCount = 0;
+            modalState.rows.forEach(function (row) {
+                if (modalState.selectedRowIds.has(row.id)) {
+                    selectedCount += 1;
+                }
+            });
+            return selectedCount;
+        }
+
+        function syncSelectionControls() {
+            const totalCount = modalState.rows.length;
+            const selectedCount = getSelectedRowCount();
+
+            selectAllCheckbox.checked = totalCount > 0 && selectedCount === totalCount;
+            selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+            selectAllCheckbox.disabled = totalCount === 0;
+            deleteSelectedBtn.disabled = selectedCount === 0;
+            deleteSelectedBtn.textContent = selectedCount > 0 ? "删除选中 (" + selectedCount + ")" : "删除选中";
+        }
+
+        function syncBatchButtons() {
+            const disabled = modalState.rows.length <= 1;
+            columnBatchButtons.forEach(function (button) {
+                button.disabled = disabled;
+            });
+        }
+
+        function showOverLimitMessage(selectedCount) {
+            const message = "当前勾选的来源渠道已超过 " + MAX_SELECTION + " 条，批量编辑最多支持 " + MAX_SELECTION + " 条，请调整勾选后重试";
+            openMessageModal(message);
+            setResultOutput("limit", {
+                message: message,
+                selectedCount: selectedCount,
+                maxSelection: MAX_SELECTION
+            });
+        }
+
+        function showSelectionRequiredMessage() {
+            const message = "请至少勾选一条来源渠道后再进行批量编辑。";
+            openMessageModal(message);
+            setResultOutput("empty", {
+                message: message,
+                selectedCount: 0
+            });
+        }
+
+        function textareaCell(index, field, value, placeholder) {
+            return [
+                '<textarea class="field-textarea" rows="2" data-min-height="56" data-index="', index,
+                '" data-field="', field,
+                '" placeholder="', escapeHtml(placeholder),
+                '">', escapeHtml(value), '</textarea>'
+            ].join("");
+        }
+
+        function inputCell(index, field, value, placeholder, type) {
+            if (type === "text") {
+                return [
+                    '<textarea class="field-textarea field-textarea-compact" rows="1" data-min-height="34" data-index="', index,
+                    '" data-field="', field,
+                    '" placeholder="', escapeHtml(placeholder),
+                    '" title="', escapeHtml(placeholder),
+                    '">', escapeHtml(value), '</textarea>'
+                ].join("");
+            }
+
+            return [
+                '<input class="field-input" type="', type,
+                '" data-index="', index,
+                '" data-field="', field,
+                '" placeholder="', escapeHtml(placeholder),
+                '" title="', escapeHtml(placeholder),
+                '" value="', escapeHtml(value),
+                '">'
+            ].join("");
+        }
+
+        function selectCell(index, field, value, options, placeholder) {
+            const optionsHtml = ['<option value="">', escapeHtml(placeholder), '</option>']
+                .concat(options.map(function (option) {
+                    const selected = option === value ? ' selected' : '';
+                    return '<option value="' + escapeHtml(option) + '"' + selected + '>' + escapeHtml(option) + '</option>';
+                }))
+                .join("");
+
+            return [
+                '<select class="field-select" data-index="', index,
+                '" data-field="', field,
+                '" title="', escapeHtml(placeholder), '">',
+                optionsHtml,
+                '</select>'
+            ].join("");
+        }
+
+        function readonlyCell(value, placeholder) {
+            return '<div class="readonly-box" title="' + escapeHtml(placeholder) + '">' + escapeHtml(value || placeholder) + '</div>';
+        }
+
+        function renderTable() {
+            pruneSelectedRows();
+            const count = modalState.rows.length;
+            modalTitle.textContent = "批量编辑";
+            selectedCountTip.textContent = "已选来源渠道：" + count + " / " + MAX_SELECTION;
+            limitTip.textContent = "单次最多支持批量编辑 " + MAX_SELECTION + " 条来源渠道";
+            saveBtn.disabled = count === 0;
+
+            if (count === 0) {
+                tableBody.innerHTML = '<tr><td colspan="15" class="empty-state">当前没有需要编辑的来源渠道，可重新选择来源渠道后再进行批量编辑。</td></tr>';
+                syncSelectionControls();
+                syncBatchButtons();
+                return;
+            }
+
+            tableBody.innerHTML = modalState.rows.map(function (row, index) {
+                const isSelected = modalState.selectedRowIds.has(row.id);
+                return [
+                    '<tr class="' + (isSelected ? "row-selected" : "") + '">',
+                    '<td class="check-cell"><input class="check-input" type="checkbox" data-row-id="' + escapeHtml(row.id) + '" aria-label="勾选当前来源渠道"' + (isSelected ? " checked" : "") + "></td>",
+                    "<td>", readonlyCell(row.sourceChannel, "暂无来源渠道"), "</td>",
+                    "<td>", textareaCell(index, "note", row.note, "请输入备注"), "</td>",
+                    "<td>", selectCell(index, "operationMode", row.operationMode, ["FBA", "FBM", "混合", "-"], "请选择运营模式"), "</td>",
+                    "<td>", readonlyCell(row.bindingBrand, "未绑定品牌"), "</td>",
+                    "<td>", inputCell(index, "brandAuthorizationTime", row.brandAuthorizationTime, "请选择品牌授权时间", "date"), "</td>",
+                    "<td>", inputCell(index, "brandRole", row.brandRole, "请输入品牌角色", "text"), "</td>",
+                    "<td>", inputCell(index, "brandRights", row.brandRights, "请输入品牌权益", "text"), "</td>",
+                    "<td>", inputCell(index, "authorizationExceptionRemark", row.authorizationExceptionRemark, "请输入授权异常情况备注", "text"), "</td>",
+                    "<td>", inputCell(index, "disableTime", row.disableTime, "请选择停用时间", "datetime-local"), "</td>",
+                    "<td>", textareaCell(index, "disableReason", row.disableReason, "请输入停用原因"), "</td>",
+                    "<td>", selectCell(index, "isSourceSite", row.isSourceSite, ["是", "否"], "请选择是否源头站点"), "</td>",
+                    "<td>", selectCell(index, "isFullDisabled", row.isFullDisabled, ["是", "否"], "请选择是否整套停用"), "</td>",
+                    "<td>", inputCell(index, "recoveryTime", row.recoveryTime, "请选择停用恢复时间", "datetime-local"), "</td>",
+                    "<td>", textareaCell(index, "disableRemark", row.disableRemark, "请输入停用备注"), "</td>",
+                    "</tr>"
+                ].join("");
+            }).join("");
+
+            requestAnimationFrame(function () {
+                tableBody.querySelectorAll("textarea").forEach(autoResizeTextarea);
+            });
+            syncSelectionControls();
+            syncBatchButtons();
+        }
+
+        function autoResizeTextarea(textarea) {
+            const minHeight = Number(textarea.dataset.minHeight || 56);
+            textarea.style.height = "auto";
+            textarea.style.height = Math.max(textarea.scrollHeight, minHeight) + "px";
+        }
+
+        function openModal(selectedChannels, options) {
+            const list = Array.isArray(selectedChannels) ? selectedChannels : [];
+            const callbackOptions = options || {};
+            if (list.length === 0) {
+                showSelectionRequiredMessage();
+                return false;
+            }
+            if (list.length > MAX_SELECTION) {
+                showOverLimitMessage(list.length);
+                return false;
+            }
+            modalState.rows = normalizeRows(list);
+            modalState.selectedRowIds.clear();
+            modalState.onClose = typeof callbackOptions.onClose === "function" ? callbackOptions.onClose : null;
+            modalState.onSave = typeof callbackOptions.onSave === "function" ? callbackOptions.onSave : null;
+            renderTable();
+            modalElement.classList.add("is-open");
+            document.body.style.overflow = "hidden";
+            return true;
+        }
+
+        function hideModal() {
+            modalElement.classList.remove("is-open");
+            document.body.style.overflow = "";
+        }
+
+        function requestClose(trigger) {
+            const payload = {
+                trigger: trigger,
+                selectedCount: modalState.rows.length,
+                rows: cloneRows(modalState.rows)
+            };
+            hideModal();
+            if (modalState.onClose) {
+                modalState.onClose(payload);
+            }
+        }
+
+        function requestSave() {
+            const payload = {
+                selectedCount: modalState.rows.length,
+                rows: cloneRows(modalState.rows)
+            };
+            if (modalState.onSave) {
+                modalState.onSave(payload);
+            }
+            hideModal();
+        }
+
+        function toggleRowSelection(rowId, checked) {
+            if (!rowId) {
+                return;
+            }
+
+            if (checked) {
+                modalState.selectedRowIds.add(rowId);
+            } else {
+                modalState.selectedRowIds.delete(rowId);
+            }
+            renderTable();
+        }
+
+        function toggleSelectAll(checked) {
+            modalState.selectedRowIds.clear();
+            if (checked) {
+                modalState.rows.forEach(function (row) {
+                    modalState.selectedRowIds.add(row.id);
+                });
+            }
+            renderTable();
+        }
+
+        function deleteSelectedRows() {
+            const selectedCount = getSelectedRowCount();
+            if (selectedCount === 0) {
+                openMessageModal("请勾选需要删除的来源渠道");
+                return;
+            }
+
+            modalState.rows = modalState.rows.filter(function (row) {
+                return !modalState.selectedRowIds.has(row.id);
+            });
+            modalState.selectedRowIds.clear();
+            renderTable();
+            setResultOutput("delete", {
+                deletedCount: selectedCount,
+                remainingCount: modalState.rows.length,
+                rows: cloneRows(modalState.rows)
+            });
+        }
+
+        function batchUpdateColumn(field) {
+            if (modalState.rows.length <= 1) {
+                openMessageModal("至少保留两条来源渠道后，才可执行批量更新。");
+                return;
+            }
+
+            const firstRow = modalState.rows[0];
+            if (!firstRow || !field) {
+                return;
+            }
+
+            const firstValue = firstRow[field];
+            modalState.rows = modalState.rows.map(function (row, index) {
+                if (index === 0) {
+                    return row;
+                }
+                return Object.assign({}, row, {
+                    [field]: firstValue
+                });
+            });
+
+            renderTable();
+            setResultOutput("batchUpdate", {
+                field: field,
+                sourceValue: firstValue,
+                rows: cloneRows(modalState.rows)
+            });
+        }
+
+        function handleFieldChange(event) {
+            const target = event.target;
+            if (!target.dataset || target.dataset.index === undefined || !target.dataset.field) {
+                return;
+            }
+
+            const rowIndex = Number(target.dataset.index);
+            const field = target.dataset.field;
+            if (!modalState.rows[rowIndex]) {
+                return;
+            }
+
+            modalState.rows[rowIndex][field] = target.value;
+            if (target.tagName === "TEXTAREA") {
+                autoResizeTextarea(target);
+            }
+        }
+
+        function handleRowSelectionChange(event) {
+            const target = event.target;
+            if (!target.matches("[data-row-id]")) {
+                return;
+            }
+
+            toggleRowSelection(target.dataset.rowId, target.checked);
+        }
+
+        function handleBatchButtonClick(event) {
+            const button = event.target.closest("[data-batch-field]");
+            if (!button) {
+                return;
+            }
+
+            batchUpdateColumn(button.dataset.batchField);
+        }
+
+        function setResultOutput(type, payload) {
+            resultOutput.textContent = JSON.stringify({
+                type: type,
+                time: new Date().toLocaleString("zh-CN"),
+                payload: payload
+            }, null, 2);
+        }
+
+        function createDemoChannels(count) {
+            const modeOptions = ["FBA", "FBM", "混合", "-"];
+            const siteOptions = ["是", "否"];
+            const brands = ["Anker", "Baseus", "Ugreen", "Mpow", "SoundPEATS"];
+
+            return Array.from({ length: count }, function (_, index) {
+                const seq = index + 1;
+                return {
+                    id: "demo-" + seq,
+                    sourceChannel: "Amazon-US-" + String(seq).padStart(2, "0"),
+                    note: seq % 2 === 0 ? "需同步检查站点授权有效期" : "",
+                    operationMode: modeOptions[index % modeOptions.length],
+                    bindingBrand: brands[index % brands.length],
+                    brandAuthorizationTime: "2026-05-" + String((seq % 28) + 1).padStart(2, "0"),
+                    brandRole: seq % 3 === 0 ? "经销商" : "品牌方",
+                    brandRights: seq % 2 === 0 ? "独家销售" : "常规授权",
+                    authorizationExceptionRemark: seq % 5 === 0 ? "历史授权文件待补充" : "",
+                    disableTime: seq % 4 === 0 ? "2026-06-" + String((seq % 28) + 1).padStart(2, "0") + "T10:30" : "",
+                    disableReason: seq % 4 === 0 ? "阶段性调整渠道策略" : "",
+                    isSourceSite: siteOptions[index % siteOptions.length],
+                    isFullDisabled: siteOptions[(index + 1) % siteOptions.length],
+                    recoveryTime: seq % 4 === 0 ? "2026-06-" + String((seq % 28) + 3).padStart(2, "0") + "T18:00" : "",
+                    disableRemark: seq % 4 === 0 ? "恢复前需完成品牌复核" : ""
+                };
+            });
+        }
+
+        function bindDemoActions() {
+            document.getElementById("openSixBtn").addEventListener("click", function () {
+                window.BatchEditChannelModal.open(createDemoChannels(6), {
+                    onClose: function (payload) {
+                        setResultOutput("close", payload);
+                    },
+                    onSave: function (payload) {
+                        setResultOutput("save", payload);
+                    }
+                });
+            });
+
+            document.getElementById("openTwentyBtn").addEventListener("click", function () {
+                window.BatchEditChannelModal.open(createDemoChannels(31), {
+                    onClose: function (payload) {
+                        setResultOutput("close", payload);
+                    },
+                    onSave: function (payload) {
+                        setResultOutput("save", payload);
+                    }
+                });
+            });
+
+            document.getElementById("openEmptyBtn").addEventListener("click", function () {
+                window.BatchEditChannelModal.open([], {
+                    onClose: function (payload) {
+                        setResultOutput("close", payload);
+                    },
+                    onSave: function (payload) {
+                        setResultOutput("save", payload);
+                    }
+                });
+            });
+        }
+
+        document.getElementById("modalCloseBtn").addEventListener("click", function () {
+            requestClose("icon");
+        });
+
+        document.getElementById("cancelBtn").addEventListener("click", function () {
+            requestClose("cancel");
+        });
+
+        saveBtn.addEventListener("click", function () {
+            requestSave();
+        });
+
+        deleteSelectedBtn.addEventListener("click", function () {
+            deleteSelectedRows();
+        });
+
+        messageConfirmBtn.addEventListener("click", function () {
+            closeMessageModal();
+        });
+
+        selectAllCheckbox.addEventListener("change", function (event) {
+            toggleSelectAll(event.target.checked);
+        });
+
+        modalElement.addEventListener("click", function (event) {
+            if (event.target === modalElement) {
+                requestClose("mask");
+            }
+        });
+
+        messageModal.addEventListener("click", function (event) {
+            if (event.target === messageModal) {
+                closeMessageModal();
+            }
+        });
+
+        tableBody.addEventListener("input", handleFieldChange);
+        tableBody.addEventListener("change", handleFieldChange);
+        tableBody.addEventListener("change", handleRowSelectionChange);
+        document.addEventListener("click", handleBatchButtonClick);
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && messageModal.classList.contains("is-open")) {
+                closeMessageModal();
+                return;
+            }
+            if (event.key === "Escape" && modalElement.classList.contains("is-open")) {
+                requestClose("escape");
+            }
+        });
+
+        window.BatchEditChannelModal = {
+            open: function (selectedChannels, options = {}) {
+                return openModal(selectedChannels, options);
+            },
+            close: function () {
+                if (modalElement.classList.contains("is-open")) {
+                    requestClose("api");
+                }
+            },
+            setData: function (selectedChannels) {
+                const list = Array.isArray(selectedChannels) ? selectedChannels : [];
+                if (list.length === 0) {
+                    showSelectionRequiredMessage();
+                    return false;
+                }
+                if (list.length > MAX_SELECTION) {
+                    showOverLimitMessage(list.length);
+                    return false;
+                }
+                modalState.rows = normalizeRows(list);
+                modalState.selectedRowIds.clear();
+                renderTable();
+                return true;
+            },
+            getData: function () {
+                return cloneRows(modalState.rows);
+            }
+        };
+
+        bindDemoActions();
+        renderTable();
+    </script>
+</body>
+</html>
